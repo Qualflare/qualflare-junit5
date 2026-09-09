@@ -158,7 +158,33 @@ final class ReportWriter {
         if (!m.steps.isEmpty()) {
             j.raw("steps", renderSteps(m.steps));
         }
+        if (!m.attachments.isEmpty()) {
+            j.raw("attachments", renderAttachments(m.attachments));
+        }
         return j.end();
+    }
+
+    private static String renderAttachments(List<Attachments.Attachment> list) {
+        StringBuilder arr = new StringBuilder("[");
+        for (int i = 0; i < list.size(); i++) {
+            if (i > 0) {
+                arr.append(',');
+            }
+            Attachments.Attachment a = list.get(i);
+            Json j = Json.object().field("name", a.name);
+            if (!a.mimeType.isEmpty()) {
+                j.field("mimeType", a.mimeType);
+            }
+            if (a.contentBase64 != null) {
+                j.field("content", a.contentBase64);
+            }
+            if (a.localImagePath != null) {
+                j.field("localImagePath", a.localImagePath);
+            }
+            j.field("fileSize", a.fileSize);
+            arr.append(j.end());
+        }
+        return arr.append(']').toString();
     }
 
     /** Case-level parameters ride as `properties`, matching the wire's map shape. */

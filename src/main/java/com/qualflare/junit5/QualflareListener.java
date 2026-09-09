@@ -97,6 +97,23 @@ public final class QualflareListener implements TestExecutionListener {
         }
     }
 
+    /**
+     * Attachments. Present from Platform 1.12 only, which is why that is the floor: on
+     * 1.11 this method does not exist on the interface and is simply never called.
+     */
+    @Override
+    public void fileEntryPublished(TestIdentifier id, org.junit.platform.engine.reporting.FileEntry file) {
+        if (!id.isTest() || file == null) {
+            return;
+        }
+        java.nio.file.Path p = file.getPath();
+        String name = p == null ? "attachment" : String.valueOf(p.getFileName());
+        Attachments.Attachment a = Attachments.of(name, p, file.getMediaType().orElse(null));
+        if (a != null) {
+            acc().attachment(id.getUniqueId(), a);
+        }
+    }
+
     @Override
     public void executionSkipped(TestIdentifier id, String reason) {
         if (!id.isTest()) {

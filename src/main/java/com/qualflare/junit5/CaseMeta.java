@@ -19,6 +19,7 @@ final class CaseMeta {
     /** {name, value-or-null, "1" when masked} */
     final List<String[]> parameters = new ArrayList<>();
     final List<Replay.Step> steps = new ArrayList<>();
+    final List<Attachments.Attachment> attachments = new ArrayList<>();
     final List<String> warnings = new ArrayList<>();
 
     String priority = "";
@@ -26,7 +27,7 @@ final class CaseMeta {
 
     boolean isEmpty() {
         return labels.isEmpty() && tags.isEmpty() && links.isEmpty()
-                && parameters.isEmpty() && steps.isEmpty()
+                && parameters.isEmpty() && steps.isEmpty() && attachments.isEmpty()
                 && priority.isEmpty() && description.isEmpty();
     }
 }

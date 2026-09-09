@@ -29,12 +29,27 @@ final class Accumulator {
 
     /** Report entries for the attempt currently in flight, keyed by uniqueId. */
     private final Map<String, List<String[]>> pendingEntries = new LinkedHashMap<>();
+    private final Map<String, List<Attachments.Attachment>> pendingAttachments = new LinkedHashMap<>();
 
     synchronized void started(String uniqueId, long nanoTime) {
         startedNanos.put(uniqueId, nanoTime);
         // A rerun starts a fresh attempt, so the previous attempt's entries must not
         // leak into it -- otherwise a retried test accumulates every attempt's steps.
         pendingEntries.remove(uniqueId);
+        pendingAttachments.remove(uniqueId);
+    }
+
+    /**
+     * Attachments land on the case directly rather than waiting for the replay: a file is
+     * already resolved by the time it is published, and unlike steps it carries no
+     * ordering that needs reconstructing.
+     */
+    synchronized void attachment(String uniqueId, Attachments.Attachment a) {
+        // ALWAYS buffered, never written straight onto the case. On a rerun, finished()
+        // replaces rec.meta with a freshly replayed one, so anything attached directly to
+        // the previous meta would be silently dropped -- and a screenshot that vanishes
+        // only on retried tests is exactly the bug nobody reproduces.
+        pendingAttachments.computeIfAbsent(uniqueId, k -> new ArrayList<>()).add(a);
     }
 
     synchronized void entry(String uniqueId, String key, String value) {
@@ -59,10 +74,18 @@ final class Accumulator {
 
         // Replace rather than merge: the final attempt's metadata is the case's metadata.
         List<String[]> entries = pendingEntries.remove(uniqueId);
+        List<Attachments.Attachment> files = pendingAttachments.remove(uniqueId);
         if (entries != null && !entries.isEmpty()) {
             CaseMeta meta = new CaseMeta();
             Replay.apply(meta, entries);
             rec.meta = meta;
+        }
+        if (files != null) {
+            for (Attachments.Attachment a : files) {
+                if (rec.meta.attachments.size() < Attachments.MAX_PER_CASE) {
+                    rec.meta.attachments.add(a);
+                }
+            }
         }
     }
 
@@ -92,5 +115,6 @@ final class Accumulator {
         byUniqueId.clear();
         startedNanos.clear();
         pendingEntries.clear();
+        pendingAttachments.clear();
     }
 }
