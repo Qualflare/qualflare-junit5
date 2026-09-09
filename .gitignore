@@ -1,0 +1,6 @@
+target/
+*.class
+.idea/
+*.iml
+qualflare-results/
+test/integration/fixture/target/

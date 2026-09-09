@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>com.qualflare</groupId>
+  <artifactId>qualflare-junit5</artifactId>
+  <version>0.1.0-SNAPSHOT</version>
+  <packaging>jar</packaging>
+
+  <name>qualflare-junit5</name>
+  <description>Native JUnit Platform reporter for Qualflare — captures status, per-attempt retry
+    history, steps, attachments and author-facing metadata straight from your test run.</description>
+  <url>https://qualflare.com/junit-test-reporting/</url>
+
+  <licenses>
+    <license>
+      <name>Apache-2.0</name>
+      <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+    </license>
+  </licenses>
+
+  <developers>
+    <developer><name>Qualflare</name><url>https://github.com/Qualflare</url></developer>
+  </developers>
+
+  <scm>
+    <url>https://github.com/Qualflare/qualflare-junit5</url>
+    <connection>scm:git:https://github.com/Qualflare/qualflare-junit5.git</connection>
+    <developerConnection>scm:git:git@github.com:Qualflare/qualflare-junit5.git</developerConnection>
+  </scm>
+
+  <properties>
+    <!-- Java 11, not 17: JUnit 5.12 itself runs on 8+, so the floor here is set by
+         reach rather than by the API. Platform 6.x needs 17 at RUNTIME, but a jar
+         compiled for 11 loads there fine. -->
+    <maven.compiler.release>11</maven.compiler.release>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
+    <!-- 1.12 is the floor because fileEntryPublished (attachments) does not exist
+         before it. Verified with javap against 1.11.3, 1.12.2, 1.13.4 and 6.1.3: the
+         signature and the FileEntry package are identical from 1.12 through 6.x, so
+         one build serves both generations. -->
+    <junit.platform.version>1.12.2</junit.platform.version>
+    <junit.jupiter.version>5.12.2</junit.jupiter.version>
+  </properties>
+
+  <dependencies>
+    <!-- provided, because the host build already puts the Launcher on the test
+         classpath. Shipping our own copy would risk two Platform versions in one JVM. -->
+    <dependency>
+      <groupId>org.junit.platform</groupId>
+      <artifactId>junit-platform-launcher</artifactId>
+      <version>${junit.platform.version}</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter-api</artifactId>
+      <version>${junit.jupiter.version}</version>
+      <scope>provided</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <version>${junit.jupiter.version}</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>3.5.2</version>
+      </plugin>
+    </plugins>
+  </build>
+</project>
