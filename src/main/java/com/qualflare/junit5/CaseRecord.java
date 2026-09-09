@@ -23,6 +23,16 @@ final class CaseRecord {
     final String legacyName;
     final List<Attempt> attempts = new ArrayList<>();
 
+    /**
+     * Author metadata from the LAST attempt only.
+     *
+     * <p>Same rule the CucumberJS reporter documents: attempts carry their own status,
+     * duration and error, but steps, labels, tags and parameters come from the final
+     * attempt. Replaying an abandoned attempt's step trace alongside the winning one
+     * would show a step tree that never existed in that shape.
+     */
+    CaseMeta meta = new CaseMeta();
+
     CaseRecord(String uniqueId, String suiteName, String className, String displayName, String legacyName) {
         this.uniqueId = uniqueId;
         this.suiteName = suiteName;

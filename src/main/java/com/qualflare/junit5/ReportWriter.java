@@ -128,7 +128,103 @@ final class ReportWriter {
         if (c.attempts.size() >= MIN_ATTEMPTS_TO_SEND) {
             j.raw("attempts", renderAttempts(c));
         }
+
+        CaseMeta m = c.meta;
+        if (!m.priority.isEmpty()) {
+            j.field("priority", m.priority);
+        }
+        if (!m.description.isEmpty()) {
+            j.field("description", m.description);
+        }
+        if (!m.tags.isEmpty()) {
+            j.raw("tags", strings(m.tags));
+        }
+        if (!m.labels.isEmpty()) {
+            j.raw("labels", rows(m.labels, r ->
+                    Json.object().field("name", r[0]).field("value", r[1]).end()));
+        }
+        if (!m.links.isEmpty()) {
+            j.raw("links", rows(m.links, r -> {
+                Json k = Json.object().field("url", r[0]).field("type", r[1]);
+                if (!r[2].isEmpty()) {
+                    k.field("name", r[2]);
+                }
+                return k.end();
+            }));
+        }
+        if (!m.parameters.isEmpty()) {
+            j.raw("properties", renderProperties(m.parameters));
+        }
+        if (!m.steps.isEmpty()) {
+            j.raw("steps", renderSteps(m.steps));
+        }
         return j.end();
+    }
+
+    /** Case-level parameters ride as `properties`, matching the wire's map shape. */
+    private static String renderProperties(List<String[]> params) {
+        Json j = Json.object();
+        for (String[] p : params) {
+            // A masked parameter carries no value at all. `masked` is a display hint the
+            // server does not act on, so withholding it here is what keeps it secret.
+            j.field(p[0], "1".equals(p[2]) ? "" : (p[1] == null ? "" : p[1]));
+        }
+        return j.end();
+    }
+
+    private static String renderSteps(List<Replay.Step> steps) {
+        StringBuilder arr = new StringBuilder("[");
+        for (int i = 0; i < steps.size(); i++) {
+            if (i > 0) {
+                arr.append(',');
+            }
+            Replay.Step s = steps.get(i);
+            Json j = Json.object()
+                    .field("name", s.name)
+                    .field("status", s.status)
+                    .field("duration", s.durationNanos);
+            if (!s.error.isEmpty()) {
+                j.field("error", s.error);
+            }
+            if (s.parentIndex != null) {
+                j.field("parentIndex", s.parentIndex.longValue());
+            }
+            if (!s.parameters.isEmpty()) {
+                j.raw("parameters", rows(s.parameters, r -> {
+                    Json k = Json.object().field("name", r[0]);
+                    if ("1".equals(r[2])) {
+                        k.field("masked", true);
+                    } else if (r[1] != null) {
+                        k.field("value", r[1]);
+                    }
+                    return k.end();
+                }));
+            }
+            arr.append(j.end());
+        }
+        return arr.append(']').toString();
+    }
+
+    private static String strings(List<String> values) {
+        StringBuilder arr = new StringBuilder("[");
+        for (int i = 0; i < values.size(); i++) {
+            if (i > 0) {
+                arr.append(',');
+            }
+            arr.append(Json.escape(values.get(i)));
+        }
+        return arr.append(']').toString();
+    }
+
+    private static String rows(List<String[]> rows, java.util.function.Function<String[], String> f) {
+        StringBuilder arr = new StringBuilder("[");
+        for (int i = 0; i < rows.size(); i++) {
+            if (i > 0) {
+                arr.append(',');
+            }
+            arr.append(f.apply(rows.get(i)));
+        }
+        return arr.append(']').toString();
     }
 
     private static String renderAttempts(CaseRecord c) {

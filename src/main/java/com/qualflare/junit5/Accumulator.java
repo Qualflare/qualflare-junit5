@@ -3,6 +3,7 @@ package com.qualflare.junit5;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -26,8 +27,19 @@ final class Accumulator {
     private final Map<String, CaseRecord> byUniqueId = new LinkedHashMap<>();
     private final Map<String, Long> startedNanos = new LinkedHashMap<>();
 
+    /** Report entries for the attempt currently in flight, keyed by uniqueId. */
+    private final Map<String, List<String[]>> pendingEntries = new LinkedHashMap<>();
+
     synchronized void started(String uniqueId, long nanoTime) {
         startedNanos.put(uniqueId, nanoTime);
+        // A rerun starts a fresh attempt, so the previous attempt's entries must not
+        // leak into it -- otherwise a retried test accumulates every attempt's steps.
+        pendingEntries.remove(uniqueId);
+    }
+
+    synchronized void entry(String uniqueId, String key, String value) {
+        pendingEntries.computeIfAbsent(uniqueId, k -> new ArrayList<>())
+                .add(new String[]{key, value});
     }
 
     /**
@@ -44,6 +56,14 @@ final class Accumulator {
         CaseRecord rec = byUniqueId.computeIfAbsent(uniqueId,
                 id -> new CaseRecord(id, suiteName, className, displayName, legacyName));
         rec.attempts.add(new Attempt(status, elapsed, message, trace));
+
+        // Replace rather than merge: the final attempt's metadata is the case's metadata.
+        List<String[]> entries = pendingEntries.remove(uniqueId);
+        if (entries != null && !entries.isEmpty()) {
+            CaseMeta meta = new CaseMeta();
+            Replay.apply(meta, entries);
+            rec.meta = meta;
+        }
     }
 
     /**
@@ -71,5 +91,6 @@ final class Accumulator {
     synchronized void clear() {
         byUniqueId.clear();
         startedNanos.clear();
+        pendingEntries.clear();
     }
 }

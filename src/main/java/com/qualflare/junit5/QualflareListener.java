@@ -1,6 +1,7 @@
 package com.qualflare.junit5;
 
 import org.junit.platform.engine.TestExecutionResult;
+import org.junit.platform.engine.reporting.ReportEntry;
 import org.junit.platform.engine.support.descriptor.ClassSource;
 import org.junit.platform.engine.support.descriptor.MethodSource;
 import org.junit.platform.launcher.TestExecutionListener;
@@ -73,6 +74,26 @@ public final class QualflareListener implements TestExecutionListener {
                     suiteOf(id), classOf(id),
                     container + " [container failure]", container,
                     Status.ERROR, now, messageOf(t), traceOf(t));
+        }
+    }
+
+    /**
+     * The metadata channel. {@link Qualflare} publishes namespaced entries and they arrive
+     * here in emission order, which is what lets steps nest without carrying ids.
+     *
+     * <p>Entries a project publishes for its own reasons are common in Java suites and
+     * must pass through untouched, so anything outside the {@code qf.} namespace is left
+     * alone rather than swallowed.
+     */
+    @Override
+    public void reportingEntryPublished(TestIdentifier id, ReportEntry entry) {
+        if (!id.isTest()) {
+            return;
+        }
+        for (java.util.Map.Entry<String, String> kv : entry.getKeyValuePairs().entrySet()) {
+            if (Keys.isOurs(kv.getKey())) {
+                acc().entry(id.getUniqueId(), kv.getKey(), kv.getValue());
+            }
         }
     }
 
