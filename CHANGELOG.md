@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.0
 
 First release of `qualflare-junit5` — a native JUnit Platform reporter for Qualflare.
 
