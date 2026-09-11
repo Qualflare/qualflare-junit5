@@ -67,7 +67,12 @@ jobs:
 
       - name: Run the fixture against JUnit ${{ matrix.junit }}
         run: |
+          # Read the version from the ROOT pom rather than letting the fixture fall back
+          # to its default. That default went stale the moment `versions:set` produced
+          # 0.1.0, and this job spent four commits red resolving 0.1.0-SNAPSHOT.
+          VERSION="$(cd ../../.. && mvn -B -ntp -q help:evaluate -Dexpression=project.version -DforceStdout)"
           mvn -B -ntp -q test \
+            -Dqualflare.version="$VERSION" \
             -Djunit.jupiter.version=${{ matrix.junit }} \
             -Djunit.platform.version=${{ matrix.platform }}
         working-directory: test/integration/fixture
