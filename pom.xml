@@ -22,7 +22,12 @@
   </licenses>
 
   <developers>
-    <developer><name>Qualflare</name><url>https://github.com/Qualflare</url></developer>
+    <developer>
+      <name>Qualflare</name>
+      <email>ibrahim@qualflare.com</email>
+      <organization>Qualflare</organization>
+      <organizationUrl>https://qualflare.com</organizationUrl>
+    </developer>
   </developers>
 
   <scm>
@@ -79,4 +84,76 @@
       </plugin>
     </plugins>
   </build>
+
+  <profiles>
+    <!-- Everything Central needs, kept off the everyday build: signing prompts for a
+         passphrase and javadoc is slow, so `mvn test` should not pay for either. CI
+         activates this with -Prelease. -->
+    <profile>
+      <id>release</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-source-plugin</artifactId>
+            <version>3.3.1</version>
+            <executions>
+              <execution>
+                <id>attach-sources</id>
+                <goals><goal>jar-no-fork</goal></goals>
+              </execution>
+            </executions>
+          </plugin>
+
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-javadoc-plugin</artifactId>
+            <version>3.11.2</version>
+            <executions>
+              <execution>
+                <id>attach-javadocs</id>
+                <goals><goal>jar</goal></goals>
+              </execution>
+            </executions>
+          </plugin>
+
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-gpg-plugin</artifactId>
+            <version>3.2.7</version>
+            <executions>
+              <execution>
+                <id>sign-artifacts</id>
+                <phase>verify</phase>
+                <goals><goal>sign</goal></goals>
+                <configuration>
+                  <!-- Read the passphrase from a property instead of a TTY: there is no
+                       terminal to prompt on in CI, and gpg would hang rather than fail. -->
+                  <gpgArguments>
+                    <arg>--pinentry-mode</arg>
+                    <arg>loopback</arg>
+                  </gpgArguments>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+
+          <plugin>
+            <groupId>org.sonatype.central</groupId>
+            <artifactId>central-publishing-maven-plugin</artifactId>
+            <version>0.9.0</version>
+            <extensions>true</extensions>
+            <configuration>
+              <publishingServerId>central</publishingServerId>
+              <!-- FALSE on purpose. Maven Central is immutable: a published version can
+                   never be replaced, only superseded. The first releases get eyeballed in
+                   the Portal before going live. Flip this once the pipeline is trusted. -->
+              <autoPublish>false</autoPublish>
+              <waitUntil>validated</waitUntil>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
 </project>
