@@ -94,6 +94,13 @@ Vitest `--shard` already use.
 `junit.jupiter.execution.parallel.enabled` is supported too. The package's own integration
 suite runs the fixture serially and in parallel and asserts the two reports match.
 
+**Gradle's `test-retry` plugin is the one exception, and it is worth knowing before you
+rely on it.** Gradle forks a fresh JVM per retry, so each attempt writes its own file as a
+single-attempt case and no per-attempt history survives — measured on Gradle 9.7.1 with
+test-retry 1.6.2. Surefire reruns in the same JVM and does not have this problem. Flaky
+detection still works either way, because Qualflare scores it from history across launches
+rather than from in-run retries. See [`docs/LIMITATIONS.md`](./docs/LIMITATIONS.md).
+
 ## Enriching your tests
 
 ```java

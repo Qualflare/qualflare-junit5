@@ -56,15 +56,40 @@ Past **300 steps per attempt** the rest are dropped and a warning is recorded. T
 the client's; the server's own is 1000. Stopping lower keeps one pathological test from
 crowding out the rest of the report.
 
-## Gradle `test-retry` is untested
+## Gradle `test-retry` loses per-attempt history
 
-Surefire's `rerunFailingTestsCount` is verified end to end. Gradle's `test-retry` plugin
-retries at task level and may fork fresh JVMs, which would put attempts in **separate
-report files** rather than one accumulator — each still correct on its own, but the attempt
-sequence would be split across files rather than joined into one case.
+Measured against Gradle 9.7.1 with `org.gradle.test-retry` 1.6.2, `maxRetries = 3`, and the
+published `0.1.0` artifact. A test that fails twice then passes produced **three report
+files from three different JVMs**:
 
-`qf collect` merges the directory either way, so nothing is lost; the per-attempt history
-may just be less complete than under Surefire. This will be measured and this note updated.
+```
+pid 98369  ->  flakyRecovers() failed    passes() passed
+pid 98370  ->  flakyRecovers() failed
+pid 98371  ->  flakyRecovers() passed
+```
+
+Every one of those is a **single-attempt** case. No `attempts` array is written anywhere,
+because one attempt is below the wire's floor of two, and `isFlaky` is false in all three
+because no JVM ever saw more than one attempt.
+
+**Gradle forks a fresh JVM per retry.** That is the whole difference from Surefire, which
+reruns in the *same* JVM as a new `TestPlan`, which is what lets the accumulator join the
+attempts into one case. Nothing on the reporter's side can bridge separate processes.
+
+The same case id therefore appears several times in one collected launch, once per attempt.
+What the server does with those duplicates is **not covered by this measurement**; only the
+client side was tested.
+
+### What to do instead
+
+Nothing, in most cases. **Qualflare scores flakiness from a test's pass/fail record across
+launches**, which needs no in-run retries at all and is the more accurate method anyway: an
+in-run retry only ever fires for a test that happened to flake while you were watching. A
+Gradle suite still gets flaky detection; it just comes from history rather than from the
+retry plugin.
+
+If you specifically want per-attempt detail in the report, Surefire's
+`rerunFailingTestsCount` provides it and Gradle's plugin cannot.
 
 ## The metadata API needs an extension
 
