@@ -1,0 +1,87 @@
+name: E2E
+
+# Dogfood: qualflare-junit5 reports on a suite of itself, and the PUBLISHED CLI uploads it.
+# This is what backs the badge and banner in the README, so the numbers there are this
+# reporter's own, produced by the code the README documents.
+#
+# Every case in e2e/ is meant to pass. The deliberately awkward ones live in
+# test/integration/fixture and are never uploaded.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  # Never two uploads racing for the same project: a half-written launch is worse than a
+  # late one.
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  dogfood:
+    name: Dogfood suite + upload to Qualflare
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00 # v4.7.1
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: Build and install the reporter from THIS commit
+        run: mvn -B -ntp -q install -DskipTests
+
+      - name: Run the dogfood suite
+        id: suite
+        continue-on-error: true
+        working-directory: e2e
+        run: |
+          VERSION="$(cd .. && mvn -B -ntp -q help:evaluate -Dexpression=project.version -DforceStdout)"
+          mvn -B -ntp test -Dqualflare.version="$VERSION"
+
+      - name: Verify the report matches what the suite declared
+        id: verify
+        continue-on-error: true
+        working-directory: e2e
+        env:
+          QUALFLARE_OUTPUT_DIR: qualflare-results
+        run: python3 verify.py
+
+      - name: Install the published CLI
+        run: npm install -g @qualflare/cli
+
+      - name: Record the project's run count before uploading
+        id: runs_before
+        run: echo "count=$(python3 e2e/assert-launch-landed.py qualflare-junit5 --print)" >> "$GITHUB_OUTPUT"
+
+      - name: Upload to Qualflare
+        env:
+          QUALFLARE_TOKEN: ${{ secrets.QF_TOKEN }}
+        run: |
+          qf login qualflare-junit5 "$QUALFLARE_TOKEN" --force
+          qf qualflare-junit5 collect ./e2e/qualflare-results
+
+      - name: Assert the launch reached the project the badge reads
+        # `OK Test results collected successfully` is not evidence. @qualflare/cli once
+        # printed exactly that for eleven consecutive runs while nothing reached the
+        # server, which is why this guard exists across the whole reporter family.
+        run: python3 e2e/assert-launch-landed.py qualflare-junit5 --before "${{ steps.runs_before.outputs.count }}"
+
+      - name: Keep the report when something went wrong
+        if: steps.suite.outcome != 'success' || steps.verify.outcome != 'success'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: e2e-results
+          path: e2e/qualflare-results
+
+      - name: Fail if the suite or the verifier was red
+        if: steps.suite.outcome != 'success' || steps.verify.outcome != 'success'
+        run: |
+          echo "::error::suite=${{ steps.suite.outcome }} verify=${{ steps.verify.outcome }}"
+          exit 1

@@ -1,6 +1,8 @@
 # qualflare-junit5
 
 [![Maven Central](https://img.shields.io/maven-central/v/com.qualflare/qualflare-junit5.svg)](https://central.sonatype.com/artifact/com.qualflare/qualflare-junit5)
+[![CI](https://github.com/Qualflare/qualflare-junit5/actions/workflows/ci.yml/badge.svg)](https://github.com/Qualflare/qualflare-junit5/actions/workflows/ci.yml)
+[![Qualflare](https://api.qualflare.com/p/qualflare-junit5/badge.svg)](https://reports.qualflare.com/p/qualflare-junit5/launches)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](./LICENSE)
 
 A native JUnit Platform reporter for [Qualflare](https://qualflare.com) — captures results
@@ -186,12 +188,31 @@ calls, so it has no credential; `qf login` holds it.
 
 Full details in [`docs/LIMITATIONS.md`](./docs/LIMITATIONS.md).
 
+## Test reports
+
+This reporter is tested with itself. `e2e/` is a JUnit suite covering this package's own
+behaviour — the metadata API, nested steps, attachments, parameterized rows as cases and
+nested classes as their own suite — run by this reporter and uploaded to Qualflare on every
+merge to `main` by the **published** `qualflare-cli`. The results below are that suite's,
+reported through the code this README documents:
+
+[![Qualflare](https://api.qualflare.com/p/qualflare-junit5/banner.svg)](https://reports.qualflare.com/p/qualflare-junit5/launches)
+
+Every case there is meant to pass, so a red run is a real regression rather than a fixture
+failing on purpose. The deliberately awkward cases — a throwing `@BeforeAll`, a test that
+never recovers, a run that blows past the step cap — live in `test/integration/fixture`,
+which is never uploaded.
+
 ## Development
 
 ```bash
 mvn test                                # unit
-mvn -q install -DskipTests              # publish locally for the fixture
+mvn -q install -DskipTests              # publish locally for the fixture and the dogfood
 python3 test/integration/verify.py      # runs the fixture serial AND parallel, then compares
+
+# the dogfood, then the check that runs before any upload
+cd e2e && mvn -q test -Dqualflare.version=0.1.0
+QUALFLARE_OUTPUT_DIR=qualflare-results python3 verify.py
 ```
 
 `test/integration/fixture` is a separate Maven project of deliberately difficult cases: a

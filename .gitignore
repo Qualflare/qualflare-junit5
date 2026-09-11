@@ -4,3 +4,4 @@ target/
 *.iml
 qualflare-results/
 test/integration/fixture/target/
+e2e/target/
