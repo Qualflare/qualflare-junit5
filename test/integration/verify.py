@@ -16,6 +16,7 @@ import json
 import glob
 import os
 import shutil
+import re
 import subprocess
 import sys
 
@@ -32,6 +33,14 @@ def check(label, ok, detail=""):
         failures.append(label)
 
 
+def reporter_version():
+    """The version just built, read from the ROOT pom rather than assumed."""
+    with open(os.path.join(HERE, "..", "..", "pom.xml")) as fh:
+        text = fh.read()
+    m = re.search(r"<artifactId>qualflare-junit5</artifactId>\s*<version>([^<]+)</version>", text)
+    return m.group(1) if m else "0.1.0-SNAPSHOT"
+
+
 def run(parallel):
     """One full fixture run; returns the parsed report."""
     results = os.path.join(FIXTURE, "qualflare-results")
@@ -42,15 +51,21 @@ def run(parallel):
     if os.path.exists(counter):
         os.remove(counter)
 
-    cmd = [MVN, "-q", "test"]
+    cmd = [MVN, "-q", "test", "-Dqualflare.version=" + reporter_version()]
     if parallel:
         cmd += ["-Djunit.jupiter.execution.parallel.enabled=true",
                 "-Djunit.jupiter.execution.parallel.mode.default=concurrent"]
-    subprocess.run(cmd, cwd=FIXTURE, capture_output=True, text=True)
+    proc = subprocess.run(cmd, cwd=FIXTURE, capture_output=True, text=True)
 
     files = glob.glob(os.path.join(results, "*.json"))
     if not files:
-        print("  no report written")
+        # Say WHY. Swallowing Maven's output here once turned a missing dependency into
+        # the uninformative "no report written", which is the same class of mistake as
+        # trusting a green checkmark.
+        print("  no report written -- the fixture build said:")
+        for line in (proc.stdout + proc.stderr).splitlines():
+            if re.search(r"ERROR|BUILD FAILURE|Could not resolve|cannot find symbol", line):
+                print("    " + line.strip())
         sys.exit(1)
     # One file per JVM. More than one here means state escaped its JVM scope.
     if len(files) != 1:

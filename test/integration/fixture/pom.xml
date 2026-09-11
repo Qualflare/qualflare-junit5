@@ -9,6 +9,10 @@
          JUnit 5.12, 5.13 and 6.x to make the one-build-serves-both claim true. -->
     <junit.jupiter.version>5.12.2</junit.jupiter.version>
     <junit.platform.version>1.12.2</junit.platform.version>
+    <!-- Passed in by verify.py, read from the ROOT pom. Hardcoding it meant the fixture
+         asked for 0.1.0-SNAPSHOT after `versions:set` had produced 0.1.0, and the release
+         gate failed with "no report written" instead of naming the missing artifact. -->
+    <qualflare.version>0.1.0-SNAPSHOT</qualflare.version>
   </properties>
   <dependencies>
     <dependency>
@@ -17,7 +21,7 @@
     </dependency>
     <dependency>
       <groupId>com.qualflare</groupId><artifactId>qualflare-junit5</artifactId>
-      <version>0.1.0-SNAPSHOT</version><scope>test</scope>
+      <version>${qualflare.version}</version><scope>test</scope>
     </dependency>
     <dependency>
       <groupId>org.junit.platform</groupId><artifactId>junit-platform-launcher</artifactId>
