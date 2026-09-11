@@ -24,10 +24,4 @@ final class CaseMeta {
 
     String priority = "";
     String description = "";
-
-    boolean isEmpty() {
-        return labels.isEmpty() && tags.isEmpty() && links.isEmpty()
-                && parameters.isEmpty() && steps.isEmpty() && attachments.isEmpty()
-                && priority.isEmpty() && description.isEmpty();
-    }
 }

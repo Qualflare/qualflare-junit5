@@ -82,6 +82,23 @@
         <artifactId>maven-surefire-plugin</artifactId>
         <version>3.5.2</version>
       </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <version>3.4.2</version>
+        <configuration>
+          <archive>
+            <manifest>
+              <!-- Version.VALUE reads Implementation-Version. Without this the manifest
+                   has no such entry, getImplementationVersion() returns null, and EVERY
+                   report claims version 0.0.0-dev, including the published one. Wrong
+                   metadata on every run, and invisible unless you read a report. -->
+              <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
+            </manifest>
+          </archive>
+        </configuration>
+      </plugin>
     </plugins>
   </build>
 

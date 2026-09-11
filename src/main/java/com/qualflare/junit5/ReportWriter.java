@@ -38,6 +38,16 @@ final class ReportWriter {
         Path file = dir.resolve(name);
         Files.write(file, render(cases).getBytes(StandardCharsets.UTF_8));
         System.out.println("[qualflare-junit5] wrote " + cases.size() + " case(s) to " + file);
+
+        // Anomalies go to stderr, where a build log will actually show them. Replay
+        // records these and nothing used to read them, so a user whose steps were
+        // truncated was never told -- the report just quietly had fewer steps than the
+        // test emitted.
+        for (CaseRecord c : cases) {
+            for (String w : c.meta.warnings) {
+                System.err.println("[qualflare-junit5] " + c.displayName + ": " + w);
+            }
+        }
         return file;
     }
 

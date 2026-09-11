@@ -2,6 +2,8 @@ package com.qualflare.junit5;
 
 import org.junit.platform.engine.TestExecutionResult;
 
+import java.util.concurrent.TimeoutException;
+
 /**
  * The six statuses the wire contract accepts, and how JUnit's three map onto them.
  *
@@ -17,6 +19,9 @@ final class Status {
     static final String ERROR = "error";
     static final String TIMEOUT = "timeout";
     static final String ABORTED = "aborted";
+
+    /** Deep enough for any real wrapping, short enough that a cycle cannot hang a build. */
+    private static final int MAX_CAUSE_DEPTH = 32;
 
     private Status() {}
 
@@ -48,27 +53,38 @@ final class Status {
      * <p>The distinction is the one triage actually uses: a hundred errors usually means
      * one broken fixture, a hundred failures means a hundred broken expectations. JUnit
      * does not draw it for us -- both arrive as FAILED -- so it is drawn here from the
-     * throwable, matching what the pytest reporter does with its own error/failure split.
+     * throwable.
+     *
+     * <p>Classified by TYPE, not by class name. An earlier version matched a list of exact
+     * names and got this wrong for JUnit 4: {@code org.junit.ComparisonFailure} extends
+     * {@code AssertionError} but is not in any such list, so every Vintage assertion
+     * failure was reported as an error -- in a reporter whose README advertises that
+     * JUnit 4 works. Measured: JUnit 5 throws {@code org.opentest4j.AssertionFailedError},
+     * a bare {@code assert} throws {@code java.lang.AssertionError}, and both are
+     * {@code instanceof AssertionError}. So is every assertion library worth supporting.
      */
     private static String failureKind(Throwable t) {
         if (t == null) {
             return FAILED;
         }
-        for (Throwable c = t; c != null; c = c.getCause() == c ? null : c.getCause()) {
-            String name = c.getClass().getName();
-            if (name.equals("org.opentest4j.AssertionFailedError")
-                    || name.equals("org.opentest4j.MultipleFailuresError")
-                    || name.equals("java.lang.AssertionError")
-                    || name.startsWith("org.assertj.core.error")
-                    || name.equals("org.mockito.exceptions.verification.WantedButNotInvoked")) {
+        // Walk the cause chain: a wrapped assertion is still an assertion failure.
+        //
+        // DEPTH-BOUNDED rather than cycle-detecting. Java forbids direct self-causation
+        // (initCause throws), so the obvious `getCause() == c` guard defends against the
+        // one cycle that cannot happen while missing the one that can: a and b each
+        // holding the other as a cause is legal, and would spin here forever -- hanging
+        // the reporter at the exact moment a build is already failing.
+        int depth = 0;
+        for (Throwable c = t; c != null && depth < MAX_CAUSE_DEPTH; c = c.getCause(), depth++) {
+            if (c instanceof AssertionError) {
                 return FAILED;
             }
-            // A timeout is its own wire status and must not be flattened into error:
-            // it is the difference between "this test is broken" and "this test hung".
-            if (name.equals("org.junit.jupiter.api.extension.TestTimedOutException")
-                    || name.equals("java.util.concurrent.TimeoutException")
-                    || (name.equals("org.opentest4j.TestAbortedException"))) {
-                return name.contains("Timed") || name.contains("Timeout") ? TIMEOUT : SKIPPED;
+            // Timeout is its own wire status and must not be flattened into error: the
+            // difference between "this test is broken" and "this test hung" is the whole
+            // point of having the status. Measured: @Timeout throws
+            // java.util.concurrent.TimeoutException, not a JUnit-specific type.
+            if (c instanceof TimeoutException) {
+                return TIMEOUT;
             }
         }
         return ERROR;
