@@ -37,10 +37,10 @@ That is the whole setup. The reporter registers itself through the JUnit Platfor
 `ServiceLoader` mechanism, so there is no build-tool configuration to add and no runner to
 swap.
 
-Requires **JUnit Platform 1.12+ / Jupiter 5.12+** and **Java 11+**. The 1.12 floor is not
-arbitrary: `fileEntryPublished`, the callback attachments arrive on, does not exist before
-it — checked with `javap` against 1.11.3, 1.12.2, 1.13.4 and 6.1.3. The signature and the
-`FileEntry` package are identical from 1.12 through 6.x, so one build serves both
+Requires **JUnit Platform 1.12+ / Jupiter 5.12+** and **Java 11+**. The floor is 1.12
+because `fileEntryPublished`, the callback attachments arrive on, does not exist before it
+— checked with `javap` against 1.11.3, 1.12.2, 1.13.4 and 6.1.3. The signature and the
+`FileEntry` package are the same from 1.12 through 6.x, so one build serves both
 generations.
 
 **Zero runtime dependencies.** The JSON is hand-rolled. A test reporter sits on everyone's
@@ -72,7 +72,7 @@ Testcontainers, since all of them run on the JUnit Platform.
 JUnit has no built-in retry, and `@RepeatedTest` is not one — it produces separate cases,
 not attempts. Real reruns come from the build tool, and they are captured in full.
 
-Measured against Maven Surefire 3.5.2 with `rerunFailingTestsCount=3`, on a test that fails
+Measured on Maven Surefire 3.5.6 with `rerunFailingTestsCount=3`, on a test that fails
 twice then passes:
 
 ```
@@ -80,9 +80,12 @@ attempts = [failed, failed, passed]    isFlaky = true    retryCount = 2
 ```
 
 Surefire re-executes a failed test in a **new TestPlan but the same JVM**, and the
-`uniqueId` is identical across those plans, which is what makes the attempt sequence
-reconstructible. A test that fails every attempt is reported as **failed and not flaky** —
-calling it flaky would hide a hard failure behind a softer word.
+`uniqueId` is the same across those plans, which is what makes the attempt sequence
+reconstructible. A test that fails every attempt is reported as **failed, not flaky**.
+
+Surefire 3.5.4 changed how sessions are scoped around those re-runs: before it, each
+re-run opened its own launcher session. The reporter handles both, and CI runs its
+integration fixture on either side of that line.
 
 ## Forked and sharded runs
 
@@ -94,10 +97,10 @@ Vitest `--shard` already use.
 `junit.jupiter.execution.parallel.enabled` is supported too. The package's own integration
 suite runs the fixture serially and in parallel and asserts the two reports match.
 
-**Gradle's `test-retry` plugin is the one exception, and it is worth knowing before you
-rely on it.** Gradle forks a fresh JVM per retry, so each attempt writes its own file as a
-single-attempt case and no per-attempt history survives — measured on Gradle 9.7.1 with
-test-retry 1.6.2. Surefire reruns in the same JVM and does not have this problem. Flaky
+**Gradle's `test-retry` plugin is the exception.** Gradle forks a fresh JVM per retry, so
+each attempt writes its own file as a single-attempt case and no per-attempt history
+survives — measured on Gradle 9.7.1 with test-retry 1.6.2. Surefire re-runs in the same JVM
+and does not have this problem. Flaky
 detection still works either way, because Qualflare scores it from history across launches
 rather than from in-run retries. See [`docs/LIMITATIONS.md`](./docs/LIMITATIONS.md).
 
@@ -134,15 +137,15 @@ junit.jupiter.extensions.autodetection.enabled=true
 
 **The metadata API is optional.** Without it every result, status, duration, error and
 retry is still reported in full; only the metadata needs a test to attach to. Calls made
-outside a registered test are dropped with a warning rather than guessed at — attaching
-them to whichever test runs next is silent wrong data, which is worse than absent data.
+outside a registered test are dropped with a warning rather than guessed at, because
+attaching them to whichever test runs next would be wrong data that looks right.
 
 **Nothing in the API can fail your test.** No method returns an error, none throws, and
 calls are inert when no reporter is listening.
 
-`Qualflare.maskedParameter` takes no value at all. `masked` is a display hint the server
-does not act on, so withholding the value here is the only thing that actually keeps a
-secret out of the report; a signature that cannot accept one cannot leak one.
+`Qualflare.maskedParameter` takes no value at all. `masked` is only a display hint that
+the server does not act on, so withholding the value here is what actually keeps a secret
+out of the report.
 
 Full reference in [`docs/METADATA-API.md`](./docs/METADATA-API.md).
 

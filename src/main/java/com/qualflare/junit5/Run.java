@@ -5,25 +5,25 @@ import java.util.concurrent.atomic.AtomicBoolean;
 /**
  * JVM-scoped run state.
  *
- * <p>This class exists because of a fact that is easy to get wrong and expensive to miss:
- * <b>the JUnit Platform creates a NEW listener instance for every TestPlan.</b> Surefire
- * runs one plan per rerun, so a listener holding its state in instance fields gets a fresh,
- * empty accumulator for every retry.
+ * <p>Run state lives here, in statics, rather than in listener fields. The reason is that
+ * a listener instance does not reliably span a whole run.
  *
- * <p>Measured before this class existed: {@code rerunFailingTestsCount=3} against a test
- * that fails twice then passes produced <b>four report files from one JVM</b> (same pid,
- * same millisecond) holding 7, 4, 4 and 3 cases. The flaky test appeared as three separate
- * one-attempt cases instead of one case with three attempts, which is precisely the retry
- * history the reporter exists to capture.
+ * <p>Maven Surefire re-runs a failed test in a new {@code TestPlan}. Up to Surefire 3.5.3
+ * each of those re-runs also got its own launcher session, and a new session means a new
+ * {@code Launcher} and a freshly loaded listener, so a listener keeping state in fields
+ * started each re-run empty. Measured on 3.5.3 with {@code rerunFailingTestsCount=3}:
+ * three sessions and three listener instances in one JVM. That produced four report files
+ * holding 7, 4, 4 and 3 cases, and the flaky test showed up as three separate
+ * one-attempt cases instead of one case with three attempts.
  *
- * <p>The earlier spike missed it because its plan counter was itself {@code static}, so it
- * incremented across instances and looked like a single listener. The integration fixture
- * caught it; the unit tests could not, because they drive {@link Accumulator} directly.
+ * <p>Surefire 3.5.4 fixed the session scoping. From that version one session covers all
+ * re-runs, and one listener instance sees all three plans. Field-held state would work
+ * there. It still would not work on 3.5.3 and earlier, which is why the statics stay.
  *
- * <p>So: one accumulator per JVM, and one FILE per JVM -- though it is written several
- * times, on every launcher-session close and again from the shutdown hook, each write
+ * <p>One accumulator per JVM, then, and one file per JVM, though that file is written
+ * several times -- on every session close and again from the shutdown hook -- each write
  * replacing the last with everything accumulated so far. With {@code forkCount > 1} each
- * forked JVM has its own accumulator and its own file, which is the directory-merge model
+ * JVM has its own accumulator and its own file, which is the directory-merge model
  * {@code qf collect} already uses for pytest-xdist and Vitest shards.
  */
 final class Run {
@@ -47,15 +47,13 @@ final class Run {
     /**
      * Rewrites the report with everything accumulated so far.
      *
-     * <p>Deliberately REPEATABLE rather than once-only. It is called on every
-     * launcher-session close -- of which Surefire opens one per rerun -- and again from
-     * the shutdown hook. Each call rewrites the same file (see {@code ReportWriter}'s
-     * per-JVM filename), so intermediate writes are earlier snapshots of the final one
-     * and the last writer wins with the complete picture.
+     * <p>Repeatable on purpose. It runs on every launcher-session close -- one per re-run
+     * on Surefire 3.5.3 and earlier, one per JVM from 3.5.4 -- and again from the shutdown
+     * hook. Every call rewrites the same file (see {@code ReportWriter}'s per-JVM
+     * filename), so earlier writes are just earlier snapshots and the last one is complete.
      *
-     * <p>Synchronized because two triggers can race: a session closing on the main thread
-     * while the shutdown hook runs on its own. Two writers interleaving on one file would
-     * produce truncated JSON, which is worse than either result alone.
+     * <p>Synchronized because a session close on the main thread can race the shutdown
+     * hook on its own thread, and two writers on one file would truncate the JSON.
      */
     static synchronized void write() {
         if (ACCUMULATOR.isEmpty()) {

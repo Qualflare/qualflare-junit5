@@ -6,42 +6,30 @@ import org.junit.platform.launcher.LauncherSessionListener;
 /**
  * Writes the report when a launcher session closes.
  *
- * <p>Suggested on the JUnit extensions issue by a maintainer, and it is the right hook:
- * {@code launcherSessionClosed} is the API's own "no more tests will be discovered or
- * executed" signal, whereas a JVM shutdown hook is a blunt instrument with no ordering
- * guarantees that a hard kill skips entirely.
+ * <p>This is the hook the Launcher API offers for "no more tests will be discovered or
+ * executed", which is what the reporter needs. A JVM shutdown hook has no ordering
+ * guarantees and is skipped entirely on a hard kill.
  *
- * <p><b>It is not, however, a once-per-JVM signal.</b> The documentation says a session
- * "usually corresponds to the lifecycle of the test JVM", and "usually" is doing real
- * work there. Measured on Maven Surefire 3.5.2 with {@code rerunFailingTestsCount=3}:
+ * <p>A session is not necessarily once per JVM. The documentation says it "usually
+ * corresponds to the lifecycle of the test JVM". Up to Maven Surefire 3.5.3 it did not:
+ * with {@code rerunFailingTestsCount=3} that version opened three sessions in one JVM,
+ * one per re-run. Surefire 3.5.4 fixed this and now opens one. The console launcher always
+ * opened one, so this was Surefire's session scoping rather than a JUnit defect.
  *
- * <pre>
- * SESSION OPENED  pid=91672  instance=759156157
- * SESSION CLOSED  pid=91672  instance=759156157
- * SESSION OPENED  pid=91672  instance=1008315045   &lt;- rerun 1: a NEW session
- * SESSION CLOSED  pid=91672  instance=1008315045
- * SESSION OPENED  pid=91672  instance=1280851663   &lt;- rerun 2: another
- * </pre>
+ * <p>So this listener holds no state and decides nothing: it asks {@link Run} to write
+ * what has accumulated so far. Each write rewrites the same file, so on an older Surefire
+ * the intermediate writes are simply earlier snapshots of the last one.
  *
- * <p>Three sessions, one JVM. The console launcher, by contrast, opens exactly one for
- * one plan -- so this is Surefire's session scoping rather than a JUnit defect.
- *
- * <p>That is why this listener does not own any state and does not decide anything: it
- * asks {@link Run} to write what has accumulated so far. Each write rewrites the same
- * file, so the last one is complete and the intermediate ones are simply earlier
- * snapshots of it. Holding run state per session -- the obvious reading of the docs --
- * would produce three partial reports under exactly this configuration.
- *
- * <p>The shutdown hook stays as a fallback. A tool that builds a {@code Launcher}
- * directly rather than through {@code LauncherFactory.openSession()} never opens a
- * session at all, and without the hook such a run would report nothing.
+ * <p>The shutdown hook stays as a fallback for tools that build a {@code Launcher}
+ * directly instead of through {@code LauncherFactory.openSession()}, which never open a
+ * session at all.
  */
 public final class QualflareSessionListener implements LauncherSessionListener {
 
     @Override
     public void launcherSessionOpened(LauncherSession session) {
-        // Nothing to do. Registering the hook here would be tempting, but the session
-        // may open before any test is seen and the hook is cheap to install lazily.
+        // Nothing to do. The session can open before any test is seen, and the hook is
+        // cheap to install lazily.
     }
 
     @Override
