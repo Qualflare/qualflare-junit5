@@ -11,8 +11,9 @@ That is why `autoPublish` is `false` and why the gate runs in full before anythi
 
 ## Cutting a release
 
-1. Make sure `main` is green — CI covers Java 11/17/21 and the fixture against JUnit 5.12,
-   5.13 and 6.x.
+1. Make sure `main` is green — CI covers Java 11/17/21, the fixture against JUnit 5.12
+   (the compile floor), 5.14 and 6.x, and Surefire on both sides of its 3.5.4 session
+   change.
 
 2. Set the version. Central rejects `-SNAPSHOT`, and the release workflow refuses it too:
 
