@@ -11,7 +11,7 @@
     <junit.jupiter.version>5.12.2</junit.jupiter.version>
     <!-- Overridden by CI to the version just built, so the dogfood exercises THIS
          commit rather than whatever is on Central. -->
-    <qualflare.version>0.1.0</qualflare.version>
+    <qualflare.version>0.2.0</qualflare.version>
   </properties>
 
   <dependencies>

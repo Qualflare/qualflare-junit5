@@ -24,13 +24,13 @@ lets any number of forked JVMs or sharded CI jobs merge into a single Launch.
 <dependency>
   <groupId>com.qualflare</groupId>
   <artifactId>qualflare-junit5</artifactId>
-  <version>0.1.0</version>
+  <version>0.2.0</version>
   <scope>test</scope>
 </dependency>
 ```
 
 ```kotlin
-testImplementation("com.qualflare:qualflare-junit5:0.1.0")
+testImplementation("com.qualflare:qualflare-junit5:0.2.0")
 ```
 
 That is the whole setup. The reporter registers itself through the JUnit Platform's
@@ -221,7 +221,7 @@ mvn -q install -DskipTests              # publish locally for the fixture and th
 python3 test/integration/verify.py      # runs the fixture serial AND parallel, then compares
 
 # the dogfood, then the check that runs before any upload
-cd e2e && mvn -q test -Dqualflare.version=0.1.0
+cd e2e && mvn -q test -Dqualflare.version=0.2.0
 QUALFLARE_OUTPUT_DIR=qualflare-results python3 verify.py
 ```
 
