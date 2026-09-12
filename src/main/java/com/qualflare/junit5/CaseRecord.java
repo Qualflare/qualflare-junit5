@@ -6,12 +6,12 @@ import java.util.List;
 /**
  * One test, and every attempt at it.
  *
- * <p>Keyed on the JUnit uniqueId, which is what makes rerun accumulation work: Surefire
- * re-executes a failed test in a NEW TestPlan but the same JVM, and the uniqueId is
- * identical across those plans. Measured against Surefire 3.5.2 with
- * rerunFailingTestsCount=3 -- one test arrived as FAILED, FAILED, SUCCESSFUL across
- * plans 1..3, and was absent from plan 4 because Surefire narrows each rerun to what is
- * still failing.
+ * <p>Keyed on the JUnit uniqueId, which is what makes re-run accumulation work: Surefire
+ * re-executes a failed test in a new TestPlan but the same JVM, and the uniqueId is the
+ * same across those plans. Measured on Surefire 3.5.6 with rerunFailingTestsCount=3 --
+ * one test arrived as FAILED, FAILED, SUCCESSFUL across plans 1..3, and was absent from
+ * plan 4 because Surefire narrows each re-run to what is still failing. This is unchanged
+ * from 3.5.2; only the session scoping around it changed, in 3.5.4.
  *
  * <p>Not thread-safe on its own; {@link Accumulator} owns the locking.
  */

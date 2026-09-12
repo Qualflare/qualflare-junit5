@@ -23,6 +23,14 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 FIXTURE = os.path.join(HERE, "fixture")
 MVN = os.environ.get("MVN", "mvn")
+# Which Surefire to drive the fixture with. 3.5.4 changed session scoping, so CI runs
+# this on both sides of that line; the report must come out the same either way.
+SUREFIRE = os.environ.get("SUREFIRE_VERSION")
+# The JUnit versions too. Without these this script re-ran Maven with the fixture's
+# DEFAULT JUnit, so the compatibility matrix's 5.13/6.x legs never reached any of the
+# assertions below -- they only proved the fixture compiled.
+JUPITER = os.environ.get("JUNIT_JUPITER_VERSION")
+PLATFORM = os.environ.get("JUNIT_PLATFORM_VERSION")
 
 failures = []
 
@@ -52,6 +60,12 @@ def run(parallel):
         os.remove(counter)
 
     cmd = [MVN, "-q", "test", "-Dqualflare.version=" + reporter_version()]
+    if SUREFIRE:
+        cmd.append("-Dsurefire.version=" + SUREFIRE)
+    if JUPITER:
+        cmd.append("-Djunit.jupiter.version=" + JUPITER)
+    if PLATFORM:
+        cmd.append("-Djunit.platform.version=" + PLATFORM)
     if parallel:
         cmd += ["-Djunit.jupiter.execution.parallel.enabled=true",
                 "-Djunit.jupiter.execution.parallel.mode.default=concurrent"]
