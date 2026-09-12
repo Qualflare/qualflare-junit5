@@ -44,6 +44,10 @@ jobs:
         # checks that. 1.12 is the floor because fileEntryPublished does not exist
         # before it.
         #
+        # The legs are: the 1.12 compile floor, the current 5.x line, the current 6.x
+        # line, and current 6.x against a pre-3.5.4 Surefire. The floor is fixed; the two
+        # "current" legs are meant to be bumped as JUnit releases.
+        #
         # The surefire column matters independently of the junit one. Surefire 3.5.4
         # changed launcher-session scoping: up to 3.5.3 each re-run opened its own session
         # (and so got its own listener instance), from 3.5.4 one session covers them all.
@@ -54,8 +58,8 @@ jobs:
             platform: '1.12.2'
             java: '17'
             surefire: '3.5.6'
-          - junit: '5.13.4'
-            platform: '1.13.4'
+          - junit: '5.14.4'
+            platform: '1.14.4'
             java: '17'
             surefire: '3.5.6'
           - junit: '6.1.3'

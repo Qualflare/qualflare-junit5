@@ -11,8 +11,10 @@
 - CI now runs the integration fixture on both sides of that change, 3.5.3 and 3.5.6, and
   the fixture's own Surefire is no longer pinned to 3.5.2.
 - The compatibility matrix's JUnit versions now reach the assertions in `verify.py`. That
-  script re-ran Maven itself with the fixture's default JUnit, so the 5.13 and 6.x legs had
+  script re-ran Maven itself with the fixture's default JUnit, so the 5.x and 6.x legs had
   only been proving that the fixture compiled.
+- The 5.x matrix leg moves from 5.13.4 to 5.14.4, the current 5.x release. The 1.12.2 leg
+  stays where it is: that one is the compile floor, not a version to keep current.
 
 ## 0.1.0
 
