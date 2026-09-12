@@ -21,21 +21,29 @@ final class ReportWriter {
 
     private ReportWriter() {}
 
+    /**
+     * Chosen ONCE per JVM, not once per write.
+     *
+     * <p>Two requirements pull in opposite directions. Between JVMs the name must be
+     * unique: with {@code forkCount > 1} or {@code reuseForks=false} each fork writes
+     * into the SAME directory and {@code qf collect} merges every file it finds, so a
+     * collision would lose a fork's results. Within a JVM it must be STABLE, because the
+     * report is now written more than once -- on every launcher-session close, and again
+     * from the shutdown hook -- and a fresh name each time would leave a trail of partial
+     * reports for collect to merge into duplicate cases.
+     *
+     * <p>Stable plus unique means: compute it once, from the pid and a random suffix.
+     */
+    private static final String FILE_NAME = String.format("qualflare-junit5-%d-%d-%d.json",
+            ProcessHandle.current().pid(),
+            System.currentTimeMillis(),
+            ThreadLocalRandom.current().nextInt(100000));
+
     static Path write(Collection<CaseRecord> cases) throws IOException {
         Path dir = Paths.get(Config.outputDir());
         Files.createDirectories(dir);
 
-        // Uniquely named per JVM, never a fixed filename: with forkCount > 1 or
-        // reuseForks=false each forked JVM writes its own file into the SAME directory,
-        // and `qf collect` merges every file it finds into one Launch. That is the same
-        // directory-merge model pytest-xdist and Vitest --shard already use, so a forked
-        // build needs no extra configuration -- but only if the files cannot collide.
-        String name = String.format("qualflare-junit5-%d-%d-%d.json",
-                ProcessHandle.current().pid(),
-                System.currentTimeMillis(),
-                ThreadLocalRandom.current().nextInt(100000));
-
-        Path file = dir.resolve(name);
+        Path file = dir.resolve(FILE_NAME);
         Files.write(file, render(cases).getBytes(StandardCharsets.UTF_8));
         System.out.println("[qualflare-junit5] wrote " + cases.size() + " case(s) to " + file);
 

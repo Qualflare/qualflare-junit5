@@ -20,14 +20,15 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * incremented across instances and looked like a single listener. The integration fixture
  * caught it; the unit tests could not, because they drive {@link Accumulator} directly.
  *
- * <p>So: one accumulator per JVM, one write per JVM. With {@code forkCount > 1} each forked
- * JVM has its own and writes its own file, which is the directory-merge model
+ * <p>So: one accumulator per JVM, and one FILE per JVM -- though it is written several
+ * times, on every launcher-session close and again from the shutdown hook, each write
+ * replacing the last with everything accumulated so far. With {@code forkCount > 1} each
+ * forked JVM has its own accumulator and its own file, which is the directory-merge model
  * {@code qf collect} already uses for pytest-xdist and Vitest shards.
  */
 final class Run {
 
     private static final Accumulator ACCUMULATOR = new Accumulator();
-    private static final AtomicBoolean WRITTEN = new AtomicBoolean(false);
     private static final AtomicBoolean HOOKED = new AtomicBoolean(false);
 
     private Run() {}
@@ -43,8 +44,21 @@ final class Run {
         }
     }
 
-    static void write() {
-        if (!WRITTEN.compareAndSet(false, true) || ACCUMULATOR.isEmpty()) {
+    /**
+     * Rewrites the report with everything accumulated so far.
+     *
+     * <p>Deliberately REPEATABLE rather than once-only. It is called on every
+     * launcher-session close -- of which Surefire opens one per rerun -- and again from
+     * the shutdown hook. Each call rewrites the same file (see {@code ReportWriter}'s
+     * per-JVM filename), so intermediate writes are earlier snapshots of the final one
+     * and the last writer wins with the complete picture.
+     *
+     * <p>Synchronized because two triggers can race: a session closing on the main thread
+     * while the shutdown hook runs on its own. Two writers interleaving on one file would
+     * produce truncated JSON, which is worse than either result alone.
+     */
+    static synchronized void write() {
+        if (ACCUMULATOR.isEmpty()) {
             return;
         }
         try {
@@ -58,6 +72,5 @@ final class Run {
     /** Test-only: lets a test start from a clean JVM-scoped state. */
     static void resetForTest() {
         ACCUMULATOR.clear();
-        WRITTEN.set(false);
     }
 }
